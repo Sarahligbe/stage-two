@@ -1,0 +1,22 @@
+name: hng-stage-two
+
+services:
+  frontend:
+    build:
+      context: frontend
+    container_name: frontend
+    networks:
+      - hng-network
+    restart: unless-stopped
+    working_dir: /frontend
+    volumes: 
+      - ./frontend:/frontend
+    tty: true
+    ports: 
+      - "80:5173"
+    env_file:
+      - .env
+
+networks: 
+  hng-network:
+    driver: bridge
