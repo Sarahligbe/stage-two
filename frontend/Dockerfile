@@ -1,17 +1,28 @@
-# Use an official Node.js 14.x image as the base image
-FROM node:20.15.0-alpine
+#set the build stage to build and compile the frontend
+FROM node:20.15.0-alpine as build-stage
 
-# Set the working directory to /app
+# Set the working directory to /frontend 
 WORKDIR /frontend
 
-# Copy the code
-COPY . .
-
-# Expose the port for the development server
-EXPOSE 5173
+#copy the package.json files
+COPY package*.json /frontend/
 
 # Install dependencies
 RUN npm install
 
-# Run the development server when the container starts
-CMD ["npm", "run", "build"]
+# Copy the rest of the frontend code
+COPY . ./frontend/
+
+# Expose the port for the server
+EXPOSE 5173
+
+# Run the server when the container starts
+RUN npm run build
+
+# Set the next stage to have only the compiled app, ready for production with Nginx
+FROM nginx:stable-alpine
+
+COPY --from=build-stage /frontend/dist/ /usr/share/nginx/html
+
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+COPY ./nginx-backend-not-found.conf /etc/nginx/extra-conf.d/backend-not-found.conf

@@ -14,11 +14,14 @@ RUN apk add --no-cache curl
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Copy files
-COPY . .
+# Copy poetry.lock* in case it doesn't exist in the repo
+COPY ./pyproject.toml ./poetry.lock* /backend/
 
 # Install project dependencies
-RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
+RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction
+
+# Copy the rest of the backend files
+COPY . ./backend
 
 # Run the prestart script
 RUN poetry run sh ./prestart.sh

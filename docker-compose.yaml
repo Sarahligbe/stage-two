@@ -11,12 +11,165 @@ services:
     working_dir: /frontend
     volumes: 
       - ./frontend:/frontend
-    tty: true
-    ports: 
-      - "80:5173"
     env_file:
-      - .env
+      - ./frontend/.env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.constraint-label=stagetwo
+      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=le
+      # Enable www redirection for HTTP and HTTPS
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
+
+  backend:
+    build:
+      context: backend
+    container_name: backend
+    networks:
+      - hng-network
+    restart: unless-stopped
+    working_dir: /backend
+    volumes: 
+      - ./backend:/backend
+    env_file:
+      - ./backend/.env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.constraint-label=stagetwo
+      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=le
+      # Define Traefik Middleware to handle domain with and without "www" to redirect to only one
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.regex=^http(s)?://www.(${DOMAIN?Variable not set})/(.*)
+      # Redirect a domain with www to non-www
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.replacement=http$${1}://${DOMAIN?Variable not set}/$${3}
+      # Enable www redirection for HTTP and HTTPS
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14.12-alpine
+    container_name: db
+    restart: always
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    env_file:
+      - .backend/.env
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+    ports: 
+      - "5432:5432"
+    networks: 
+      - hng-network
+  
+  adminer:
+    image: adminer:4
+    restart: always
+    networks:
+      - hng-network
+    depends_on:
+      - db
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
+      - ADMINER_DEFAULT_SERVER=db
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.constraint-label=stagetwo
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.rule=Host(`db.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.rule=Host(`db.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=letsencryptresolver
+      - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
+    
+  proxy:
+    image: traefik:3.0
+    ports:
+      # Listen on port 80, default for HTTP, necessary to redirect to HTTPS
+      - 80:80
+      # Listen on port 443, default for HTTPS
+      - 443:443
+    restart: always
+    env_file:
+      - .backend/.env
+    labels:
+      # Enable Traefik for this service, to make it available in the public network
+      - traefik.enable=true
+      # Use the custom hng-network
+      - traefik.docker.network=hng-network
+      #Use services with this label
+      - traefik.constraint-label=stagetwo
+      # Define the port inside of the Docker service to use
+      - traefik.http.services.${STACK_NAME?Variable not set}.loadbalancer.server.port=8090
+      # Set traefik domain for use in http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-http.rule=Host(`proxy.${DOMAIN?Variable not set}`)
+      # traefik-https the actual router using HTTPS
+      - traefik.http.routers.${STACK_NAME?Variable not set}-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-https.rule=Host(`proxy.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-https.tls=true
+      # Use the let's encrypt resolver
+      - traefik.http.routers.${STACK_NAME?Variable not set}-https.tls.certresolver=letsencryptresolver
+      # Use the special Traefik service api@internal with the web UI/Dashboard
+      - traefik.http.routers.${STACK_NAME?Variable not set}-https.service=api@internal
+      # https-redirect middleware to redirect HTTP to HTTPS
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+      # traefik-http set up only to use the middleware to redirect to https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-http.middlewares=https-redirect
+      # "admin" middleware definition
+      # to be used by services that do not have their own security
+      - traefik.http.middlewares.admin.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
+    volumes:
+      # Add Docker as a mounted volume, so that Traefik can read the labels of other services
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount the volume to store the certificates
+      - dns-certificates:/certificates
+    command:
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - --providers.docker
+      # Require containers to define `traefik.enable=true` to be exposed
+      - --providers.docker.exposedbydefault=false
+      # Create an entrypoint "http" listening on port 80
+      - --entrypoints.http.address=:80
+      # Create an entrypoint "https" listening on port 443
+      - --entrypoints.https.address=:443
+      # Create the certificate resolver for Let's Encrypt
+      - --certificatesresolvers.letsencryptresolver.acme.email=${EMAIL?Variable not set}
+      # Store the Let's Encrypt certificates in the mounted volume
+      - --certificatesresolvers.letsencryptresolver.acme.storage=/certificates/acme.json
+      # Use the TLS Challenge for Let's Encrypt
+      - --certificatesresolvers.letsencryptresolver.acme.tlschallenge=true
+      # Enable the access log, with HTTP requests
+      - --accesslog
+      # Enable the Traefik log, for configurations and errors
+      - --log
+      # Enable the Dashboard and API
+      - --api
+
+volumes:
+  db-data:
+  dns-certificates:
 
 networks: 
   hng-network:
-    driver: bridge
+    external: true
