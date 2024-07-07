@@ -40,6 +40,10 @@ Add Poetry to your PATH (if not automatically added):
     ```sh
     poetry run uvicorn app.main:app --reload
     ```
+    If you’re running on an AWS instance run this command below instead:
+    ```sh
+       poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ```
 
 5. **Update configuration**:
    Ensure you update the necessary configurations in the `.env` file, particularly the database configuration.  
