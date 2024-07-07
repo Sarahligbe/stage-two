@@ -12,7 +12,7 @@ services:
     volumes: 
       - ./frontend:/frontend
     env_file:
-      - ./frontend/.env
+      - ./frontend/.env.prod
       - .env
     labels:
       - traefik.enable=true
@@ -25,7 +25,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=letsencryptresolver
-      # Define Traefik Middleware to handle domain with and without "www" to redirect to only one
+      # Define Traefik Middleware to redirect www to non-www
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.regex=^http(s)?://www.(${DOMAIN?Variable not set})/(.*)
       # Redirect a domain with www to non-www
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.replacement=http$${1}://${DOMAIN?Variable not set}/$${3}
@@ -44,7 +44,7 @@ services:
     volumes: 
       - ./backend:/backend
     env_file:
-      - ./backend/.env
+      - ./backend/.env.prod
       - .env
     labels:
       - traefik.enable=true
@@ -57,7 +57,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=letsencryptresolver
-      # Define Traefik Middleware to handle domain with and without "www" to redirect to only one
+      # Define Traefik Middleware to redirect www to non-www
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.regex=^http(s)?://www.(${DOMAIN?Variable not set})/(.*)
       # Redirect a domain with www to non-www
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.replacement=http$${1}://${DOMAIN?Variable not set}/$${3}
@@ -89,7 +89,7 @@ services:
       - db
     env_file:
       - .env
-      - ./backend/.env
+      - ./backend/.env.prod
     environment:
       - ADMINER_DESIGN=pepa-linha-dark
       - ADMINER_DEFAULT_SERVER=db
@@ -141,9 +141,6 @@ services:
       - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
       # traefik-http set up only to use the middleware to redirect to https
       - traefik.http.routers.${STACK_NAME?Variable not set}-http.middlewares=https-redirect
-      # "admin" middleware definition
-      # to be used by services that do not have their own security
-      - traefik.http.middlewares.admin.basicauth.users=${HTTP_BASIC_USER}:${HTTP_BASIC_PWD}
     volumes:
       # Add Docker as a mounted volume, so that Traefik can read the labels of other services
       - /var/run/docker.sock:/var/run/docker.sock:ro
