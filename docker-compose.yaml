@@ -13,6 +13,7 @@ services:
       - ./frontend:/frontend
     env_file:
       - ./frontend/.env
+      - .env
     labels:
       - traefik.enable=true
       - traefik.docker.network=hng-network
@@ -24,6 +25,10 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls.certresolver=letsencryptresolver
+      # Define Traefik Middleware to handle domain with and without "www" to redirect to only one
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.regex=^http(s)?://www.(${DOMAIN?Variable not set})/(.*)
+      # Redirect a domain with www to non-www
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.replacement=http$${1}://${DOMAIN?Variable not set}/$${3}
       # Enable www redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
@@ -40,11 +45,12 @@ services:
       - ./backend:/backend
     env_file:
       - ./backend/.env
+      - .env
     labels:
       - traefik.enable=true
       - traefik.docker.network=hng-network
       - traefik.constraint-label=stagetwo
-      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
+      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=8000
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=http
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
@@ -62,19 +68,15 @@ services:
       - db
 
   db:
-    image: postgres:14.12-alpine
+    image: postgres:14.12
     container_name: db
     restart: always
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data
     env_file:
-      - .backend/.env
-    environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
-    ports: 
-      - "5432:5432"
+      - .env
+    ports:
+      - "5432:5432" 
     networks: 
       - hng-network
   
@@ -85,6 +87,9 @@ services:
       - hng-network
     depends_on:
       - db
+    env_file:
+      - .env
+      - ./backend/.env
     environment:
       - ADMINER_DESIGN=pepa-linha-dark
       - ADMINER_DEFAULT_SERVER=db
@@ -110,7 +115,7 @@ services:
       - 443:443
     restart: always
     env_file:
-      - .backend/.env
+      - .env
     labels:
       # Enable Traefik for this service, to make it available in the public network
       - traefik.enable=true
@@ -119,7 +124,7 @@ services:
       #Use services with this label
       - traefik.constraint-label=stagetwo
       # Define the port inside of the Docker service to use
-      - traefik.http.services.${STACK_NAME?Variable not set}.loadbalancer.server.port=8090
+      - traefik.http.services.${STACK_NAME?Variable not set}.loadbalancer.server.port=8080
       # Set traefik domain for use in http
       - traefik.http.routers.${STACK_NAME?Variable not set}-http.entrypoints=http
       - traefik.http.routers.${STACK_NAME?Variable not set}-http.rule=Host(`proxy.${DOMAIN?Variable not set}`)
@@ -144,6 +149,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Mount the volume to store the certificates
       - dns-certificates:/certificates
+    networks:
+      - hng-network
     command:
       # Enable Docker in Traefik, so that it reads labels from Docker services
       - --providers.docker
@@ -167,9 +174,9 @@ services:
       - --api
 
 volumes:
-  db-data:
+  pg-data:
   dns-certificates:
 
 networks: 
   hng-network:
-    external: true
+    driver: bridge
