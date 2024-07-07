@@ -42,7 +42,9 @@ Add Poetry to your PATH (if not automatically added):
     ```
 
 5. **Update configuration**:
-   Ensure you update the necessary configurations in the `.env` file, particularly the database configuration.
+   Ensure you update the necessary configurations in the `.env` file, particularly the database configuration.  
+
+    __**Note**__: Update the BACKEND_CORS to include your AWS public IP if you're running in an EC2 instance
 
 ## Setting up with Docker
 ### Prerequisites 

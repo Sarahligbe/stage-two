@@ -19,16 +19,17 @@ To get started with this template, please follow the instructions in the respect
 - [Backend README](./backend/README.md). 
 
 ## Running the project
+### Pre-requisites
+- A domain name with `db` and `proxy` subdomains setup
 
-1. Edit the .env file to include your domain name and email to set letsencrypt. 
+1. Edit the .env file to include your domain name, email for letsencrypt, and database credentials
 2. Run
 ```bash
    docker compose up -d
 ```
 
-## Running the project locally
-Run
-```bash
-   docker compose -f docker-compose-dev.yaml up -d
-```
+ __**Note**__:   
+ 
+ - Update the API URL to your domain name in the `frontend/.env.prod` file
+ - Update the BACKEND_CORS to include your domain name in the `backend/.env.prod` file
 
