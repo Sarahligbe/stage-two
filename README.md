@@ -16,5 +16,19 @@ Each directory has its own README file with detailed instructions specific to th
 To get started with this template, please follow the instructions in the respective directories:
 
 - [Frontend README](./frontend/README.md)
-- [Backend README](./backend/README.md)
+- [Backend README](./backend/README.md). 
+
+## Running the project
+
+1. Edit the .env file to include your domain name and email to set letsencrypt. 
+2. Run
+```bash
+   docker compose up -d
+```
+
+## Running the project locally
+Run
+```bash
+   docker compose -f docker-compose-dev.yaml up -d
+```
 

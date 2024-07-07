@@ -2,6 +2,7 @@
 
 This directory contains the backend of the application built with FastAPI and a PostgreSQL database.
 
+## Setting up manually
 ## Prerequisites
 
 - Python 3.8 or higher
@@ -18,7 +19,7 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 Add Poetry to your PATH (if not automatically added):
 
-## Setup Instructions
+### Setup Instructions
 
 1. **Navigate to the backend directory**:
     ```sh
@@ -42,3 +43,17 @@ Add Poetry to your PATH (if not automatically added):
 
 5. **Update configuration**:
    Ensure you update the necessary configurations in the `.env` file, particularly the database configuration.
+
+## Setting up with Docker
+### Prerequisites 
+- PostgreSQL (ensure the database server is running)
+
+### For deploying the backend using Docker:  
+1. Build the app by running:
+```bash
+   sudo docker build  -t backend:1.0 .
+``` 
+2. Run the container based on this image (ensure that the postgres db is running locally or in a container before runing this command):
+```bash
+   sudo docker run -d -p 8000:8000 backend:1.0
+```

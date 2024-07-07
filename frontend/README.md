@@ -2,12 +2,13 @@
 
 This directory contains the frontend of the application built with ReactJS and ChakraUI.
 
-## Prerequisites
+## Setting up manually
+### Prerequisites
 
 - Node.js (version 14.x or higher)
 - npm (version 6.x or higher)
 
-## Setup Instructions
+### Setup Instructions
 
 1. **Navigate to the frontend directory**:
     ```sh
@@ -21,9 +22,19 @@ This directory contains the frontend of the application built with ReactJS and C
 
 3. **Run the development server**:
     ```sh
-    npm run dev
+    npm run dev --host 
     ```
 
 4. **Configure API URL**:
    Ensure the API URL is correctly set in the `.env` file.
 
+## Setting up with Docker
+
+### For deploying the frontend using Docker:  
+1. Build the app by running:
+```bash
+   sudo docker build  -t frontend:1.0 .
+``` 
+2. Run the container based on this image:
+```bash
+   sudo docker run -d -p 8000:8000 frontend:1.0
