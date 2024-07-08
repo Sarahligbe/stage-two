@@ -22,6 +22,7 @@ To get started with this template, please follow the instructions in the respect
 ### Pre-requisites
 - A domain name with `db` and `proxy` subdomains setup
 
+### Running the project in prod - with ssl
 1. Edit the .env file to include your domain name, email for letsencrypt, and database credentials
 2. Run
 ```bash
@@ -31,5 +32,12 @@ To get started with this template, please follow the instructions in the respect
  __**Note**__:   
  
  - Update the API URL to your domain name in the `frontend/.env.prod` file
- - Update the BACKEND_CORS to include your domain name in the `backend/.env.prod` file
+ - Update the BACKEND_CORS to include your domain name in the `backend/.env.prod` file  
 
+ ### Running the project in a dev environment - without ssl
+ - Update the API_URL to include your domain url and your domain name in the `./frontend/.env` file  
+ - Update your domain name and include your domain url in the BACKEND_CORS environment variable in the `./backend/.env` file  
+ - Run
+ ```bash
+    docker compose -f docker-compose-dev.yaml up -d
+```

@@ -1,0 +1,118 @@
+name: hng-stage-two
+
+services:
+  frontend:
+    build:
+      context: frontend
+    container_name: frontend
+    networks:
+      - hng-network
+    restart: unless-stopped
+    working_dir: /frontend
+    volumes: 
+      - ./frontend:/frontend
+    env_file:
+      - ./frontend/.env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.http.services.dev-frontend.loadbalancer.server.port=80
+      - traefik.http.routers.dev-frontend-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.dev-frontend-http.entrypoints=http
+
+  backend:
+    build:
+      context: backend
+    container_name: backend
+    networks:
+      - hng-network
+    restart: unless-stopped
+    working_dir: /backend
+    volumes: 
+      - ./backend:/backend
+    env_file:
+      - ./backend/.env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.http.services.dev-backend.loadbalancer.server.port=8000
+      - traefik.http.routers.dev-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.dev-backend-http.entrypoints=http
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14.12
+    container_name: db
+    restart: always
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    env_file:
+      - ./backend/.env
+    ports:
+      - "5432:5432" 
+    networks: 
+      - hng-network
+  
+  adminer:
+    image: adminer:4
+    restart: always
+    networks:
+      - hng-network
+    depends_on:
+      - db
+    env_file:
+      - ./backend/.env
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
+      - ADMINER_DEFAULT_SERVER=db
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=hng-network
+      - traefik.http.routers.dev-adminer-http.rule=Host(`db.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.dev-adminer-http.entrypoints=http
+      - traefik.http.services.dev-adminer.loadbalancer.server.port=8080
+    
+  proxy:
+    image: traefik:3.0
+    ports:
+      # Listen on port 80, default for HTTP, necessary to redirect to HTTPS
+      - 80:80
+    restart: always
+    env_file:
+      - ./backend/.env
+    labels:
+      # Enable Traefik for this service, to make it available in the public network
+      - traefik.enable=true
+      # Use the custom hng-network
+      - traefik.docker.network=hng-network
+      # Define the port inside of the Docker service to use
+      - traefik.http.services.dev.loadbalancer.server.port=8080
+      # Set traefik domain for use in http
+      - traefik.http.routers.dev-http.entrypoints=http
+      - traefik.http.routers.dev-http.rule=Host(`proxy.${DOMAIN?Variable not set}`)
+    volumes:
+      # Add Docker as a mounted volume, so that Traefik can read the labels of other services
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - hng-network
+    command:
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - --providers.docker
+      # Require containers to define `traefik.enable=true` to be exposed
+      - --providers.docker.exposedbydefault=false
+      # Create an entrypoint "http" listening on port 80
+      - --entrypoints.http.address=:80
+      # Enable the access log, with HTTP requests
+      - --accesslog
+      # Enable the Traefik log, for configurations and errors
+      - --log
+      # Enable the Dashboard and API
+      - --api.insecure=true
+
+volumes:
+  pg-data:
+
+networks: 
+  hng-network:
+    driver: bridge
